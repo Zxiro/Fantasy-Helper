@@ -5,10 +5,10 @@ FROM python:3.9-slim
 WORKDIR /app
 
 # 複製程式碼到映像檔
-COPY bot.py config.py ./
+COPY bot.py config.py requirements.txt ./
 
 # 安裝 Python 套件
-RUN pip install python-telegram-bot
+RUN pip install -r requirements.txt
 
 # 設定環境變數
 ENV BOT_TOKEN=config.py.tg_token
