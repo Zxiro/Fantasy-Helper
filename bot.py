@@ -15,6 +15,7 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     level=logging.INFO
 )
+
 logging.getLogger("httpx").setLevel(logging.WARNING)
 
 logger = logging.getLogger(__name__)
@@ -23,19 +24,15 @@ logger = logging.getLogger(__name__)
 PLAYERNAME = range(1)
 
 def get_player_data(player_name, player_type):
-    # 將玩家名稱轉換為小寫,並以空格分割成單詞列表
-    words = player_name.lower().split()
-    
-    # 將每個單詞的首字母轉換為大寫
-    capitalized_words = [word.capitalize() for word in words]
-    
-    # 用空格連接所有單詞,形成新的玩家名稱
-    player_name = ' '.join(capitalized_words)
     if (player_type == 'batter'): stats_df = statcast_batter_percentile_ranks(2024)
     else: stats_df = statcast_pitcher_percentile_ranks(2024)
     player_row = stats_df.loc[stats_df['player_name'] == player_name]
+
     # 將行轉換為字典
-    player_data = player_row.to_dict('records')[0]
+    try:
+        player_data = player_row.to_dict('records')[0]
+    except IndexError:
+        return "Wrong Command, Type Again"
     
     # 提取數值
     stats = []
@@ -90,23 +87,41 @@ async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_message(chat_id=update.effective_chat.id, text=update.message.text)
 
 async def get_batter(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    print('get_pitcher func')
     player_name = update.message.text
-    await context.bot.send_photo(chat_id=update.effective_chat.id, photo=get_player_data(player_name, 'batter'))
-    return ConversationHandler.END
+    user = update.effective_user
+    print(f"Username: {user.username}, ID: {user.id}, Search: {player_name}")
+    batter_data = get_player_data(player_name, 'batter')
+    if isinstance(batter_data, str):
+        # 如果 get_player_data 返回一個字符串,表示輸入錯誤
+        await context.bot.send_message(chat_id=update.effective_chat.id, text=batter_data)
+        return PLAYERNAME
+    else:
+        await context.bot.send_photo(chat_id=update.effective_chat.id, photo=batter_data)
+        return ConversationHandler.END
 
 async def get_pitcher(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    print('get_pitcher func')
     player_name = update.message.text
-    await context.bot.send_photo(chat_id=update.effective_chat.id, photo=get_player_data(player_name, 'pitcher'))
-    return ConversationHandler.END
+    user = update.effective_user
+    print(f"Username: {user.username}, ID: {user.id}, Search: {player_name}")
+    pitcher_data = get_player_data(player_name, 'pitcher')
+    if isinstance(pitcher_data, str):
+        # 如果 get_player_data 返回一個字符串,表示輸入錯誤
+        await context.bot.send_message(chat_id=update.effective_chat.id, text=pitcher_data)
+        return PLAYERNAME
+    else:
+        await context.bot.send_photo(chat_id=update.effective_chat.id, photo=pitcher_data)
+        return ConversationHandler.END
 
 async def get_player_name(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    await context.bot.send_message(chat_id=update.effective_chat.id, text="請輸入球員名稱:")
+    await context.bot.send_message(chat_id=update.effective_chat.id, text="Enter the player name")
     return PLAYERNAME
 
 batter_conv_handler = ConversationHandler(
     entry_points = [CommandHandler('get_batter', get_player_name)],
     states = {
-        PLAYERNAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_batter)]
+        PLAYERNAME: [MessageHandler(filters.TEXT & (~filters.COMMAND), get_batter)]
     },
     fallbacks=[]
 )
@@ -115,7 +130,7 @@ pitcher_conv_handler = ConversationHandler(
     # Enter the conversation from this two command
     entry_points = [CommandHandler('get_pitcher', get_player_name)],
     states = {
-        PLAYERNAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_pitcher)]
+        PLAYERNAME: [MessageHandler(filters.TEXT & (~filters.COMMAND), get_pitcher)]
     },
     fallbacks=[]
 )
